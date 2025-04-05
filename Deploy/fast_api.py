@@ -41,7 +41,6 @@ async def extract_data(request: Request, imageUpload: UploadFile = File(...)):
             "request": request,
             "extractedData": extracted_data,
             "restoredImageURL": f"data:image/png;base64,{img_str}",
-            "imageWithDataURL": None  # Không có ảnh với dữ liệu nhúng
         })
     except Exception as e:
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
@@ -53,7 +52,8 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         # Đọc ảnh từ file upload
         img_bytes = await imageUploadEmbed.read()
         img = Image.open(BytesIO(img_bytes))
-
+        secret_data = dataInput
+        print("secret data la: ",secret_data)
         # Nhúng dữ liệu vào ảnh (Ví dụ: thêm văn bản vào ảnh)
         img_with_data = img.copy()  # Đây chỉ là ví dụ, bạn có thể thực hiện nhúng dữ liệu thật sự vào ảnh
 
@@ -67,8 +67,6 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
 
         return templates.TemplateResponse("embed-data.html", {
             "request": request,
-            "extractedData": None,  # Không có dữ liệu trích xuất
-            "restoredImageURL": None,  # Không có ảnh phục hồi
             "imageWithDataURL": f"data:image/png;base64,{img_with_data_str}"
         })
     except Exception as e:
