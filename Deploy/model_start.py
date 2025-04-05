@@ -118,6 +118,7 @@ def encode(cover_path, stego_path, secret_path, secret_format):
     Image.fromarray(stego_image).save(stego_path)
     
     print(f"Encoded secret from {secret_path} into {stego_path}")
+    return stego_image #Hàm return trả về hệ thống.
 
 # Decoding function: Extracts secret data from the stego image using the loaded model.
 def decode(stego_path, output_path, secret_format):
@@ -142,3 +143,4 @@ def decode(stego_path, output_path, secret_format):
         raise ValueError("Invalid secret format. Choose 'text' or 'image'.")
     
     print(f"Decoded secret from {stego_path} into {output_path}")
+    return recovered_text,recovered_img
