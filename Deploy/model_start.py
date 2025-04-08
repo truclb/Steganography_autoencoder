@@ -9,20 +9,22 @@ from reedsolo import RSCodec
 import zlib
 
 # Load the trained SteganoModel
-from models.CNNStegano import SteganoModel  # Adjust the import path as needed
+from Model.Model_class import SteganoModel 
 
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "saved_models/model.pth"  # Update to your correct path
+MODEL_PATH = "./Deploy/Model/stego_model_weights.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
 
-# Load the entire model instance (assuming the entire model was saved)
-model = torch.load(MODEL_PATH, map_location=device)
-model.eval()  # Set to evaluation mode
+#Load State_dict
+model = SteganoModel() 
+model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+model.to(device)
+model.eval()
 
 # Define image transformation (must match training transforms)
 transform = transforms.Compose([
@@ -81,33 +83,28 @@ def base64_to_image(base64_string, output_path):
         f.write(image_data)
 
 # Embedding function: Encodes secret data into cover image using the loaded model.
-def encode(cover_path, stego_path, secret_path, secret_format):
-    cover_image = Image.open(cover_path).convert("RGB")
+def encode(cover_input, secret_data):
+    print('------This is ENCODE function------')
+    if isinstance(cover_input, str):
+        cover_image = Image.open(cover_input).convert("RGB")
+    elif isinstance(cover_input, Image.Image):
+        cover_image = cover_input.convert("RGB")
+    else:
+        # Trường hợp còn lại là buffer (ví dụ BytesIO)
+        cover_image = Image.open(cover_input).convert("RGB")
+    #stego_image = cover_image
     cover_tensor = transform(cover_image).unsqueeze(0).to(device)  # Convert to tensor
 
-    if secret_format == "text":
-        with open(secret_path, "r", encoding="utf-8") as f:
-            secret_data = f.read().strip()  # Read and clean the text
-        
-        # Convert text to binary representation (string of 0s and 1s)
-        secret_bin_str = ''.join(format(ord(c), '08b') for c in secret_data)
-        secret_bin = [int(bit) for bit in secret_bin_str]
-        required_length = 8 * 256 * 256  # 524288 elements
-        
-        if len(secret_bin) < required_length:
-            # Pad with zeros if the secret is too short
-            secret_bin = secret_bin + [0] * (required_length - len(secret_bin))
-        else:
-            # Truncate if too long
-            secret_bin = secret_bin[:required_length]
-        
-        secret_tensor = torch.Tensor(secret_bin).view(1, 8, 256, 256).to(device)
-        
-    elif secret_format == "image":
-        secret_img = Image.open(secret_path).convert("RGB")
-        secret_tensor = transform(secret_img).unsqueeze(0).to(device)
+    # Encode chuỗi thành tensor
+    secret_bin_str = ''.join(format(ord(c), '08b') for c in secret_data)
+    secret_bin = [int(bit) for bit in secret_bin_str]
+    required_length = 8 * 256 * 256
+    if len(secret_bin) < required_length:
+        secret_bin += [0] * (required_length - len(secret_bin))
     else:
-        raise ValueError("Invalid secret format. Choose 'text' or 'image'.")
+        secret_bin = secret_bin[:required_length]
+    secret_tensor = torch.Tensor(secret_bin).view(1, 8, 256, 256).to(device)
+    
     
     with torch.no_grad():
         stego_image, _, _, _ = model(cover_tensor, secret_tensor)
@@ -115,32 +112,33 @@ def encode(cover_path, stego_path, secret_path, secret_format):
     # Convert tensor to PIL image
     stego_image = stego_image.squeeze(0).permute(1, 2, 0).cpu().numpy()
     stego_image = (stego_image * 255).clip(0, 255).astype("uint8")
-    Image.fromarray(stego_image).save(stego_path)
-    
-    print(f"Encoded secret from {secret_path} into {stego_path}")
-    return stego_image #Hàm return trả về hệ thống.
+    #Image.fromarray(stego_image).save(stego_path)
+    stego_pil = Image.fromarray(stego_image)
+    print(f"✅ Đã mã hóa chuỗi '{secret_data[:30]}...' vào ảnh")
+    return stego_pil #Hàm return trả về hệ thống.
 
 # Decoding function: Extracts secret data from the stego image using the loaded model.
-def decode(stego_path, output_path, secret_format):
-    stego_image = Image.open(stego_path).convert("RGB")
-    stego_tensor = transform(stego_image).unsqueeze(0).to(device)  # Convert to tensor
+def decode(stego_input):
+    print("--------This is DECODE function-------")
     
+    if isinstance(stego_input, str):
+        stego_image = Image.open(stego_input).convert("RGB")
+    elif isinstance(stego_input, Image.Image):
+        stego_image = stego_input.convert("RGB")
+    else:
+        # Trường hợp còn lại là buffer (ví dụ BytesIO)
+        stego_image = Image.open(stego_input).convert("RGB")
+    recovered_text = 'ERROR - cannot recovery'
+    recovered_img = stego_image
+
+    stego_tensor = transform(stego_image).unsqueeze(0).to(device)  # Convert to tensor
+    # Gọi hàm model để chạy và lấy đặc trưng ra.
     with torch.no_grad():
         dummy_secret = torch.zeros((1, 8, 256, 256), device=device)
         _, recovered_secret, _, _ = model(stego_tensor, dummy_secret)
-    
-    if secret_format == "text":
-        recovered_bits = recovered_secret.cpu().numpy().flatten().round().astype(int)
-        byte_list = [int("".join(map(str, recovered_bits[i:i+8])), 2) for i in range(0, len(recovered_bits), 8)]
-        recovered_text = "".join([chr(b) for b in byte_list if 32 <= b <= 126])
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(recovered_text)
-    elif secret_format == "image":
-        recovered_img = recovered_secret.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        recovered_img = (recovered_img * 255).clip(0, 255).astype("uint8")
-        Image.fromarray(recovered_img).save(output_path)
-    else:
-        raise ValueError("Invalid secret format. Choose 'text' or 'image'.")
-    
-    print(f"Decoded secret from {stego_path} into {output_path}")
+
+    recovered_bits = recovered_secret.cpu().numpy().flatten().round().astype(int)
+    byte_list = [int("".join(map(str, recovered_bits[i:i+8])), 2) for i in range(0, len(recovered_bits), 8)]
+    recovered_text = "".join([chr(b) for b in byte_list if 32 <= b <= 126])
+    print(f"✅ Giải mã thành công chuỗi: ",recovered_text)
     return recovered_text,recovered_img

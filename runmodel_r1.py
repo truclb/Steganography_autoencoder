@@ -8,20 +8,27 @@ from reedsolo import RSCodec
 import zlib
 
 # Load the trained SteganoModel
-from models.CNNStegano import SteganoModel  # Adjust the import path as needed
+from Deploy.Model.Model_class import SteganoModel  # Adjust the import path as needed
 
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "saved_models/model.pth"  # Update to your correct path
+MODEL_PATH = ".\Deploy\Model\stego_model_weights.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
 
-# Load the entire model instance (assuming the entire model was saved)
-model = torch.load(MODEL_PATH, map_location=device)
-model.eval()  # Set to evaluation mode
+# Phải import tất cả các class trong Model_class nếu muốn load full.
+# model = torch.load(MODEL_PATH, map_location=device)
+# model.eval()
+
+#Load State_dict
+model = SteganoModel() 
+model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+model.to(device)
+model.eval()
+
 
 # Define image transformation (must match training transforms)
 transform = transforms.Compose([
@@ -179,3 +186,5 @@ if __name__ == "__main__":
         decode(args.stego, args.output, args.format)
     else:
         parser.print_help()
+#python main.py encode path/to/cover.jpg path/to/stego.jpg path/to/secret.txt --format text
+#python main.py decode path/to/stego.jpg path/to/output.txt --format text

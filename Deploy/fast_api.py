@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from io import BytesIO
 from PIL import Image
 import base64
+import model_start
 
 app = FastAPI()
 templates = Jinja2Templates(directory="./Deploy/templates")
@@ -26,16 +27,13 @@ async def extract_data(request: Request, imageUpload: UploadFile = File(...)):
         img_bytes = await imageUpload.read()
         img = Image.open(BytesIO(img_bytes))
 
-        # Trích xuất dữ liệu từ ảnh (Ví dụ: trả về văn bản)
-        extracted_data = "Dữ liệu trích xuất từ ảnh (Ví dụ)"
-        
-        # Phục hồi ảnh (Giả sử ảnh không thay đổi)
-        restored_image = img
+        # Gọi decode không cần output_path nữa
+        extracted_data, restored_image = model_start.decode(img)
 
-        # Lưu ảnh phục hồi vào bộ đệm
-        buffered = BytesIO()
-        restored_image.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+         # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
+        buffer_display = BytesIO()
+        restored_image.save(buffer_display, format="PNG")
+        img_str = base64.b64encode(buffer_display.getvalue()).decode("utf-8")
 
         return templates.TemplateResponse("extract-data.html", {
             "request": request,
@@ -55,14 +53,14 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         secret_data = dataInput
         print("secret data la: ",secret_data)
         # Nhúng dữ liệu vào ảnh (Ví dụ: thêm văn bản vào ảnh)
-        img_with_data = img.copy()  # Đây chỉ là ví dụ, bạn có thể thực hiện nhúng dữ liệu thật sự vào ảnh
+        img_with_data = model_start.encode(img,secret_data)
 
         # Lưu ảnh với dữ liệu đã nhúng
-        img_with_data.save("image_with_data.png")
+        img_with_data.save("image_with_data.jpg")
 
-        # Chuyển ảnh với dữ liệu đã nhúng thành base64
+        # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffered_with_data = BytesIO()
-        img_with_data.save(buffered_with_data, format="PNG")
+        img_with_data.save(buffered_with_data, format="JPG")
         img_with_data_str = base64.b64encode(buffered_with_data.getvalue()).decode("utf-8")
 
         return templates.TemplateResponse("embed-data.html", {
