@@ -131,9 +131,12 @@ class StegoReconstructor(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(32, 3, 3, 1, 1)
         )
-
-    def forward(self, embedded_features):
-        return self.decode(embedded_features)
+        self.refine = nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1)
+    def forward(self, embedded_features,cover_image):
+        decoded = self.decode(embedded_features)          # Decode từ đặc trưng đã nhúng
+        stego = decoded + cover_image                      # Skip connection từ ảnh gốc
+        stego = self.refine(stego)                         # Refine qua Conv3x3 nữa
+        return stego
 
 # 4. Secret Extractor: Recovers the hidden secret data from the stego image.
 class SecretExtractor(nn.Module):
@@ -212,7 +215,7 @@ class SteganoModel(nn.Module):
         self.feature_extractor = FeatureExtractor(num_channels=num_channels)
         self.secret_embedder = SecretEmbedder(num_image_channels=num_channels, num_secret_channels=num_secret_channels)
         self.stego_reconstructor = StegoReconstructor(num_channels=num_channels)
-        
+
         self.secret_extractor = SecretExtractor(num_secret_channels=num_secret_channels)
         self.cover_reconstructor = CoverReconstructor(num_channels=num_channels)
         self.evaluate = Evaluate()  # Evaluate module to compute auxiliary quality score
@@ -228,7 +231,7 @@ class SteganoModel(nn.Module):
         # Step 2: Fuse secret data (as extra channels) into the cover features.
         fused_features = self.secret_embedder(cover_features, secret_data)
         # Step 3: Reconstruct the stego image from the fused features.
-        stego_image = self.stego_reconstructor(fused_features)
+        stego_image = self.stego_reconstructor(fused_features,cover_image)
         
         #--> Step 4,5,6 --> Decode - Extracted_data.
         # Step 4: Extract features from the stego image.

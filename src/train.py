@@ -17,7 +17,7 @@ from autoencoder_class import CoverImageDataset, SteganoModel,hybrid_loss
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 32
 NUM_EPOCHS = 20
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.0001
 NUM_CHANNELS = 64
 NUM_SECRET_CHANNELS = 8
 # Transformation and Dataset Instance
