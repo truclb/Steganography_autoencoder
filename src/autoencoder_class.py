@@ -110,12 +110,12 @@ class FeatureExtractor(nn.Module):
         return self.conv(x)
 
 class SecretEmbedder(nn.Module):
-    def __init__(self, image_channels=64, secret_channels=8):
+    def __init__(self, num_image_channels=64, num_secret_channels=8):
         super().__init__()
         self.fuse = nn.Sequential(
-            nn.Conv2d(image_channels + secret_channels, image_channels, 3, 1, 1),
+            nn.Conv2d(num_image_channels + num_secret_channels, num_image_channels, 3, 1, 1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(image_channels, image_channels, 3, 1, 1),
+            nn.Conv2d(num_image_channels, num_image_channels, 3, 1, 1),
             nn.ReLU(inplace=True)
         )
 
@@ -124,16 +124,16 @@ class SecretEmbedder(nn.Module):
 
 # 2. Decoder components
 class StegoReconstructor(nn.Module):
-    def __init__(self, in_channels=64):
+    def __init__(self, num_channels=64):
         super().__init__()
         self.decode = nn.Sequential(
-            nn.Conv2d(in_channels, 32, 3, 1, 1),
+            nn.Conv2d(num_channels, 32, 3, 1, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(32, 3, 3, 1, 1)
         )
 
-    def forward(self, x):
-        return self.decode(x)
+    def forward(self, embedded_features):
+        return self.decode(embedded_features)
 
 # 4. Secret Extractor: Recovers the hidden secret data from the stego image.
 class SecretExtractor(nn.Module):
