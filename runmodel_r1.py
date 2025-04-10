@@ -8,13 +8,13 @@ from reedsolo import RSCodec
 import zlib
 
 # Load the trained SteganoModel
-from Deploy.Model.Model_class import SteganoModel  # Adjust the import path as needed
+from Deploy.Model.SteganoGAN_class import SteganoModel  # Adjust the import path as needed
 
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = ".\Deploy\Model\stego_model_weights.pth"  # Update to your correct path
+MODEL_PATH = ".\Deploy\Model\stego_model_StegoGAN.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
