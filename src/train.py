@@ -26,7 +26,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-cover_image_dataset = CoverImageDataset(image_dir='D:/LinhTinh/StegnoGraphy/DoAnCuoiKy/data/', transform=transform)
+cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/dataset/', transform=transform)
 
 # ---------------------------------------------------------------------
 # Set the experiment name (this can be customized)
