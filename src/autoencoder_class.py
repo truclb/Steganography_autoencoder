@@ -230,7 +230,7 @@ class SteganoModel(nn.Module):
         self.secret_embedder = SecretEmbedder(secret_size=secret_size) #embedding network
         self.stego_reconstructor = StegoReconstructor(input_channels=input_channels) #Decoder
 
-        self.secret_extractor = SecretExtractor(secret_size=secret_size,input_channel=input_channels) #extractor M'
+        self.secret_extractor = SecretExtractor(secret_size=secret_size,input_channels=input_channels) #extractor M'
         
         #self.cover_reconstructor = CoverReconstructor(num_channels=num_channels) 
         self.evaluate = Evaluate()  # Evaluate module to compute auxiliary quality score
