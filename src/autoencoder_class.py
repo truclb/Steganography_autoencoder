@@ -117,6 +117,7 @@ class FeatureExtractor(nn.Module):
 class SecretEmbedder(nn.Module):
     def __init__(self, secret_size=64):
         super().__init__()
+        self.secret_size=secret_size
         self.fuse = nn.Sequential(
             nn.ConvTranspose2d(256 + secret_size, 128, kernel_size=4, stride=2, padding=1),
             nn.ReLU()
