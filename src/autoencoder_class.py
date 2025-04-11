@@ -115,7 +115,7 @@ class FeatureExtractor(nn.Module):
     
 # 1.2 Embedding Network
 class SecretEmbedder(nn.Module):
-    def __init__(self, secret_size=100):
+    def __init__(self, secret_size=64):
         super().__init__()
         self.fuse = nn.Sequential(
             nn.ConvTranspose2d(256 + secret_size, 128, kernel_size=4, stride=2, padding=1),
@@ -123,56 +123,54 @@ class SecretEmbedder(nn.Module):
         )
 
     def forward(self, image_features, secret_data):
-        # secret_data: [B, num_secret_channels, H, W]
-        combined = torch.cat([image_features, secret_data], dim=1)
-        return self.fuse(combined) #embedding_features
+        # Expand secret vector to feature map
+        B, _, H, W = image_features.shape
+        secret_map = secret_data.view(B, self.secret_size, 1, 1).expand(-1, -1, H, W)
+        combined = torch.cat([image_features, secret_map], dim=1)
+        return self.fuse(combined)
 
 # 2. Decoder components
 class StegoReconstructor(nn.Module):
     def __init__(self, input_channels=3):
         super().__init__()
-        self.deconv2 = nn.Sequential(  # B/4, 64
+        self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.ReLU()
-        )
-        self.deconv3 = nn.Sequential(  # B/2, 32
+            nn.ReLU(),
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            nn.ReLU()
-        )
-        self.deconv4 = nn.Sequential(  # B, d(C)
+            nn.ReLU(),
             nn.ConvTranspose2d(32, input_channels, kernel_size=4, stride=2, padding=1),
             nn.ReLU()
         )
-        self.final_conv = nn.Conv2d(input_channels * 2, input_channels, kernel_size=3, padding=1)  # Blend với ảnh gốc
-    def forward(self, embedded_features,cover_image):
+        self.refine = nn.Conv2d(input_channels * 2, input_channels, kernel_size=3, padding=1)
 
-         # Decode từ đặc trưng đã nhúng
-        decoded = self.deconv2(embedded_features)  
-        decoded = self.deconv3(decoded)
-        decoded = self.deconv4(decoded)       
+    def forward(self, embedded_features, cover_image):
+        decoded = self.decoder(embedded_features)
+        concat = torch.cat([decoded, cover_image], dim=1)
+        return self.refine(concat)
 
-        decoded = torch.cat([decoded,cover_image],dim=1)       # Skip connection từ ảnh gốc
-        stego = self.final_conv(stego)                         # Refine qua Conv3x3 nữa
-        return stego
 
 # 4. Secret Extractor: Recovers the hidden secret data from the stego image.
 class SecretExtractor(nn.Module):
-    def __init__(self,  secret_size=64, input_channels=3):
+    def __init__(self, secret_size=64, input_channels=3):
         super(SecretExtractor, self).__init__()
         self.extract = nn.Sequential(
-            nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),  # 128x128
+            nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),              # 64x64
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),             # 32x32
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),            # 16x16
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             nn.ReLU()
         )
         self.flatten = nn.Flatten()
-        self.fc = nn.Linear(256 * 16 * 16, secret_size)
+        self.fc = nn.Sequential(
+            nn.Linear(256 * 16 * 16, secret_size)
+            nn.Sigmoid()
+        )
+
     def forward(self, stego_image):
-        features = self.encoder(stego_image)
+        features = self.extract(stego_image)
         flattened = self.flatten(features)
         extracted_secret = self.fc(flattened)
         return extracted_secret
