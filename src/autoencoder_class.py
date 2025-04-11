@@ -165,7 +165,7 @@ class SecretExtractor(nn.Module):
         )
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
-            nn.Linear(256 * 16 * 16, secret_size)
+            nn.Linear(256 * 16 * 16, secret_size),
             nn.Sigmoid()
         )
 
