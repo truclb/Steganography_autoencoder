@@ -165,10 +165,8 @@ class SecretExtractor(nn.Module):
             nn.ReLU()
         )
         self.flatten = nn.Flatten()
-        self.fc = nn.Sequential(
-            nn.Linear(256 * 16 * 16, secret_size),
-            nn.Sigmoid()
-        )
+        self.fc = nn.Linear(256 * 16 * 16, secret_size)
+        
 
     def forward(self, stego_image):
         features = self.extract(stego_image)
