@@ -191,7 +191,7 @@ class CoverReconstructor(nn.Module):
 
 # 6. Evaluate Module: Evaluates the quality of the stego image and recovered secret.
 class Evaluate(nn.Module):
-    def __init__(self,secret_size=100):
+    def __init__(self,secret_size=64):
         super(Evaluate, self).__init__()
         # Process stego image (3 channels)
         self.image_layers = nn.Sequential(
@@ -232,7 +232,7 @@ class SteganoModel(nn.Module):
         self.secret_extractor = SecretExtractor(secret_size=secret_size,input_channels=input_channels) #extractor M'
         
         #self.cover_reconstructor = CoverReconstructor(num_channels=num_channels) 
-        self.evaluate = Evaluate()  # Evaluate module to compute auxiliary quality score
+        self.evaluate = Evaluate(secret_size=secret_size)  # Evaluate module to compute auxiliary quality score
     
     def forward(self, cover_image, secret_data):
         """

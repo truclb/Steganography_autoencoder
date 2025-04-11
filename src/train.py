@@ -15,9 +15,9 @@ from autoencoder_class import CoverImageDataset, SteganoModel,hybrid_loss
 
 # Define the device for computation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 NUM_EPOCHS = 50
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.0005
 INPUT_CHANNELS = 3
 SECRET_SIZE = 64
 # Transformation and Dataset Instance
@@ -26,7 +26,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/dataset/', transform=transform)
+cover_image_dataset = CoverImageDataset(image_dir='D:/LinhTinh/StegnoGraphy/DoAnCuoiKy/data/', transform=transform)
 
 # ---------------------------------------------------------------------
 # Set the experiment name (this can be customized)
@@ -34,7 +34,7 @@ cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/datas
 
 # Main Execution Block for Training with MLflow logging
 if __name__ == '__main__':
-    dataloader = DataLoader(cover_image_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8)
+    dataloader = DataLoader(cover_image_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
     model = SteganoModel(input_channels=INPUT_CHANNELS, secret_size=SECRET_SIZE).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     print("---------Training START--------")
