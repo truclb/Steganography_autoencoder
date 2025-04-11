@@ -97,10 +97,10 @@ class SteganographyUtils:
 # 1. Feature Extractor: Extracts CNN features from the cover image.
 # 1. Encoder components
 class FeatureExtractor(nn.Module):
-    def __init__(self, input_channel=3):
+    def __init__(self, input_channels=3):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(input_channel, 32, kernel_size=3, stride=2, padding=1),  # B/2, 32
+            nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),  # B/2, 32
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),              # B/4, 64
             nn.ReLU(),
@@ -226,7 +226,7 @@ class Evaluate(nn.Module):
 class SteganoModel(nn.Module):
     def __init__(self, input_channels=3, secret_size=100):
         super(SteganoModel, self).__init__()
-        self.feature_extractor = FeatureExtractor(input_channel=input_channels) #Encoder
+        self.feature_extractor = FeatureExtractor(input_channels=input_channels) #Encoder
         self.secret_embedder = SecretEmbedder(secret_size=secret_size) #embedding network
         self.stego_reconstructor = StegoReconstructor(input_channels=input_channels) #Decoder
 
