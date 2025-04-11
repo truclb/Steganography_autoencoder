@@ -16,7 +16,7 @@ from autoencoder_class import CoverImageDataset, SteganoModel,hybrid_loss
 # Define the device for computation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 32
-NUM_EPOCHS = 20
+NUM_EPOCHS = 200
 LEARNING_RATE = 0.0001
 NUM_CHANNELS = 64
 NUM_SECRET_CHANNELS = 8
@@ -57,7 +57,8 @@ if __name__ == '__main__':
 
             avg_loss = total_loss_epoch / len(dataloader)
             print(f"Epoch [{epoch+1}/{NUM_EPOCHS}] - Avg Loss: {avg_loss:.4f}")
-            torch.save(model.state_dict(),f"./model/StegoAE_epoch_{epoch+1}.pth")
+            if (epoch + 1) % 20 == 0:
+                torch.save(model.state_dict(),f"./model/StegoAE_epoch_{epoch+1}.pth")
         # Log the final model
         # mlflow.pytorch.log_model(model, "SteganoModel")
     print("Training complete!")

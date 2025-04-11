@@ -14,7 +14,7 @@ from autoencoder_class import SteganoModel # Adjust the import path as needed
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "./model/StegoAE_epoch_2.pth"  # Update to your correct path
+MODEL_PATH = "./model/stego_AEmodel_weights.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
