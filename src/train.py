@@ -18,8 +18,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 32
 NUM_EPOCHS = 20
 LEARNING_RATE = 0.0001
-NUM_CHANNELS = 64
-NUM_SECRET_CHANNELS = 8
+INPUT_CHANNELS = 3
+SECRET_SIZE = 64
 # Transformation and Dataset Instance
 transform = transforms.Compose([
     transforms.Resize((256, 256)),
@@ -35,7 +35,7 @@ cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/datas
 # Main Execution Block for Training with MLflow logging
 if __name__ == '__main__':
     dataloader = DataLoader(cover_image_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=8)
-    model = SteganoModel(num_channels=NUM_CHANNELS, num_secret_channels=NUM_SECRET_CHANNELS).to(device)
+    model = SteganoModel(input_channels=INPUT_CHANNELS, secret_size=SECRET_SIZE).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     print("---------Training START--------")
     for epoch in range(NUM_EPOCHS):
@@ -45,11 +45,11 @@ if __name__ == '__main__':
             for images in progress_bar:
                 images = images.to(device)
                 B, C, H, W = images.size()
-                secret_data = torch.bernoulli(torch.full((B, 8, H, W), 0.5)).to(device)
+                secret_data = torch.bernoulli(torch.full((B, SECRET_SIZE), 0.5)).to(device)
 
                 optimizer.zero_grad()
                 stego_image, recovered_secret, reconstructed_cover, eval_score = model(images, secret_data)
-                loss = hybrid_loss(stego_image, images, recovered_secret, secret_data, reconstructed_cover, alpha=0.5)
+                loss = hybrid_loss(stego_image, images, recovered_secret, secret_data, reconstructed_cover=0, alpha=0.5) #Không đánh giá Reconstructed_cover.
                 loss.backward()
                 optimizer.step()
                 total_loss_epoch += loss.item()

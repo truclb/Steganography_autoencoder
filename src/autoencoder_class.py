@@ -97,60 +97,85 @@ class SteganographyUtils:
 # 1. Feature Extractor: Extracts CNN features from the cover image.
 # 1. Encoder components
 class FeatureExtractor(nn.Module):
-    def __init__(self, num_channels=64):
+    def __init__(self, input_channel=3):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(3, num_channels, 3, 1, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(num_channels, num_channels, 3, 1, 1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(input_channel, 32, kernel_size=3, stride=2, padding=1),  # B/2, 32
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),              # B/4, 64
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),             # B/8, 128
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),            # B/16, 256
+            nn.ReLU()
         )
 
-    def forward(self, x):
-        return self.conv(x)
-
+    def forward(self, cover_image):
+        return self.conv(cover_image) #tạo ra img_feat
+    
+# 1.2 Embedding Network
 class SecretEmbedder(nn.Module):
-    def __init__(self, num_image_channels=64, num_secret_channels=8):
+    def __init__(self, secret_size=100):
         super().__init__()
         self.fuse = nn.Sequential(
-            nn.Conv2d(num_image_channels + num_secret_channels, num_image_channels, 3, 1, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(num_image_channels, num_image_channels, 3, 1, 1),
-            nn.ReLU(inplace=True)
+            nn.ConvTranspose2d(256 + secret_size, 128, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
         )
 
-    def forward(self, img_feat, secret_data):
-        return self.fuse(torch.cat([img_feat, secret_data], dim=1))
+    def forward(self, image_features, secret_data):
+        # secret_data: [B, num_secret_channels, H, W]
+        combined = torch.cat([image_features, secret_data], dim=1)
+        return self.fuse(combined) #embedding_features
 
 # 2. Decoder components
 class StegoReconstructor(nn.Module):
-    def __init__(self, num_channels=64):
+    def __init__(self, input_channels=3):
         super().__init__()
-        self.decode = nn.Sequential(
-            nn.Conv2d(num_channels, 32, 3, 1, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 3, 3, 1, 1)
+        self.deconv2 = nn.Sequential(  # B/4, 64
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
         )
-        self.refine = nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1)
+        self.deconv3 = nn.Sequential(  # B/2, 32
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
+        )
+        self.deconv4 = nn.Sequential(  # B, d(C)
+            nn.ConvTranspose2d(32, input_channels, kernel_size=4, stride=2, padding=1),
+            nn.ReLU()
+        )
+        self.final_conv = nn.Conv2d(input_channels * 2, input_channels, kernel_size=3, padding=1)  # Blend với ảnh gốc
     def forward(self, embedded_features,cover_image):
-        decoded = self.decode(embedded_features)          # Decode từ đặc trưng đã nhúng
-        stego = decoded + cover_image                      # Skip connection từ ảnh gốc
-        stego = self.refine(stego)                         # Refine qua Conv3x3 nữa
+
+         # Decode từ đặc trưng đã nhúng
+        decoded = self.deconv2(embedded_features)  
+        decoded = self.deconv3(decoded)
+        decoded = self.deconv4(decoded)       
+
+        decoded = torch.cat([decoded,cover_image],dim=1)       # Skip connection từ ảnh gốc
+        stego = self.final_conv(stego)                         # Refine qua Conv3x3 nữa
         return stego
 
 # 4. Secret Extractor: Recovers the hidden secret data from the stego image.
 class SecretExtractor(nn.Module):
-    def __init__(self, num_secret_channels=8):
+    def __init__(self,  secret_size=64, input_channels=3):
         super(SecretExtractor, self).__init__()
         self.extract = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, num_secret_channels, kernel_size=3, stride=1, padding=1),
-            nn.Sigmoid()  # Normalizes output to [0,1]
+            nn.Conv2d(input_channels, 32, kernel_size=3, stride=2, padding=1),  # 128x128
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),              # 64x64
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),             # 32x32
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),            # 16x16
+            nn.ReLU()
         )
-    
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(256 * 16 * 16, secret_size)
     def forward(self, stego_image):
-        return self.extract(stego_image)
+        features = self.encoder(stego_image)
+        flattened = self.flatten(features)
+        extracted_secret = self.fc(flattened)
+        return extracted_secret
 
 # 5. Cover Reconstructor: Recovers the original cover image from extracted features.
 class CoverReconstructor(nn.Module):
@@ -167,57 +192,47 @@ class CoverReconstructor(nn.Module):
 
 # 6. Evaluate Module: Evaluates the quality of the stego image and recovered secret.
 class Evaluate(nn.Module):
-    def __init__(self):
+    def __init__(self,secret_size=100):
         super(Evaluate, self).__init__()
         # Process stego image (3 channels)
         self.image_layers = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1)
+            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1),    # 128x128
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),   # 64x64
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),  # 32x32
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1), # 16x16
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1)  # output [B, 256, 1, 1]
         )
-        # Process recovered secret (num_secret_channels)
-        self.data_layers = nn.Sequential(
-            nn.Conv2d(8, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.01, inplace=True),
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1)
-        )
-        self.pool = nn.AdaptiveAvgPool2d(1)
+        # Fully connected layers
         self.fc = nn.Sequential(
-            nn.Linear(2, 64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 1)
+            nn.Linear(256 + secret_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)  # Output: score
         )
     
     def forward(self, stego_image, recovered_secret):
-        image_score = self.pool(self.image_layers(stego_image)).view(stego_image.size(0), -1)
-        secret_score = self.pool(self.data_layers(recovered_secret)).view(recovered_secret.size(0), -1)
-        combined = torch.cat([image_score, secret_score], dim=1)
-        return self.fc(combined)
+        B = stego_image.size(0)
+        # Extract image feature
+        img_feat = self.image_layers(stego_image).view(B, -1)  # [B, 256]
+        # Combine with recovered secret [B, secret_size]
+        combined = torch.cat([img_feat, recovered_secret], dim=1)
+        # Final score
+        return self.fc(combined)  # [B, 1]
 
 # 7. Updated SteganoModel: Integrates all components following our strategy.
 class SteganoModel(nn.Module):
-    def __init__(self, num_channels=64, num_secret_channels=8):
+    def __init__(self, input_channels=3, secret_size=100):
         super(SteganoModel, self).__init__()
-        self.feature_extractor = FeatureExtractor(num_channels=num_channels)
-        self.secret_embedder = SecretEmbedder(num_image_channels=num_channels, num_secret_channels=num_secret_channels)
-        self.stego_reconstructor = StegoReconstructor(num_channels=num_channels)
+        self.feature_extractor = FeatureExtractor(input_channel=input_channels) #Encoder
+        self.secret_embedder = SecretEmbedder(secret_size=secret_size) #embedding network
+        self.stego_reconstructor = StegoReconstructor(input_channels=input_channels) #Decoder
 
-        self.secret_extractor = SecretExtractor(num_secret_channels=num_secret_channels)
-        self.cover_reconstructor = CoverReconstructor(num_channels=num_channels)
+        self.secret_extractor = SecretExtractor(secret_size=secret_size,input_channel=input_channels) #extractor M'
+        
+        #self.cover_reconstructor = CoverReconstructor(num_channels=num_channels) 
         self.evaluate = Evaluate()  # Evaluate module to compute auxiliary quality score
     
     def forward(self, cover_image, secret_data):
@@ -225,7 +240,7 @@ class SteganoModel(nn.Module):
         cover_image: Tensor [B, 3, H, W]
         secret_data: Tensor [B, num_secret_channels, H, W]
         """
-        #--> Step 1,2,3 --> Encode - embedding data into Imgate
+        #--> Step 1,2,3 --> Encode - embedding data into Image
         # Step 1: Extract cover image features.
         cover_features = self.feature_extractor(cover_image)
         # Step 2: Fuse secret data (as extra channels) into the cover features.
@@ -233,14 +248,15 @@ class SteganoModel(nn.Module):
         # Step 3: Reconstruct the stego image from the fused features.
         stego_image = self.stego_reconstructor(fused_features,cover_image)
         
-        #--> Step 4,5,6 --> Decode - Extracted_data.
+        #--> Step 4,5,6 --> Extracted_data.
         # Step 4: Extract features from the stego image.
-        extracted_features = self.feature_extractor(stego_image)
+        #extracted_features = self.feature_extractor(stego_image)
         # Step 5: Recover secret data from the stego image.
         recovered_secret = self.secret_extractor(stego_image)
+
         # Step 6: Recover the original cover image from the extracted cover features.
-        reconstructed_cover = self.cover_reconstructor(extracted_features)
-        
+        #reconstructed_cover = self.cover_reconstructor(extracted_features)
+        reconstructed_cover = 'reconstructed_cover'
         # Auxiliary evaluation score from Evaluate module.
         eval_score = self.evaluate(stego_image, recovered_secret)
         
@@ -297,8 +313,9 @@ transform = transforms.Compose([
 
 # ---------------------------------------------------------------------
 # Loss Function for End-to-End Training
-def hybrid_loss(stego_image, cover_image, recovered_secret, secret_data, reconstructed_cover, alpha=0.5):
+def hybrid_loss(stego_image, cover_image, recovered_secret, secret_data, reconstructed_cover=0, alpha=0.5):
     loss_visual = nn.functional.mse_loss(stego_image, cover_image)
     loss_secret = nn.functional.mse_loss(recovered_secret, secret_data)
-    loss_cover = nn.functional.mse_loss(reconstructed_cover, cover_image)
+    #loss_cover = nn.functional.mse_loss(reconstructed_cover, cover_image)
+    loss_cover = 0
     return alpha * (loss_visual + loss_cover) + (1 - alpha) * loss_secret
