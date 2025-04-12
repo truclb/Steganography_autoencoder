@@ -14,7 +14,7 @@ from autoencoder_class import SteganoModel # Adjust the import path as needed
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "./StegoAE_epoch_40.pth"  # Update to your correct path
+MODEL_PATH = "./model/stego_AEmodel_weights.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
@@ -165,8 +165,8 @@ def decode(stego_path, output_path):
     with torch.no_grad():
         # Trích xuất secret tensor từ ảnh
         recovered_secret = model.secret_extractor(stego_tensor)  # [1, secret_size]
-        decoded_digits = decode_secret_tensor(recovered_secret)  # [['1', '2', ..., '0']]
-
+        #decoded_digits = decode_secret_tensor(recovered_secret)  # [['1', '2', ..., '0']]
+    decoded_digits = 0
     # Kiểm tra và ghép thành chuỗi
     if isinstance(decoded_digits, list) and len(decoded_digits) > 0:
         if isinstance(decoded_digits[0], (list, tuple)):
