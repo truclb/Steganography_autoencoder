@@ -435,7 +435,7 @@ transform = transforms.Compose([
 ])
 
 # Step 3: Create an Instance of the Dataset
-cover_image_dataset = CoverImageDataset(image_dir='D:\\DLResearches\\cocostuff\\cocostuff-10k-v1.1\\images', transform=transform)
+cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/cocostuff-10k-v1.1/images', transform=transform)
 
 # Main execution block
 if __name__ == '__main__':
@@ -452,7 +452,7 @@ if __name__ == '__main__':
 
     lambda_r = 1.0
     lambda_gp = 10.0
-    num_epochs = 20
+    num_epochs = 5
 
     for epoch in range(num_epochs):
         progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch")
@@ -490,3 +490,6 @@ if __name__ == '__main__':
         avg_critic_loss = total_critic_loss / len(dataloader)
         avg_enc_dec_loss = total_enc_dec_loss / len(dataloader)
         print(f"Epoch [{epoch+1}/{num_epochs}] - Avg Critic Loss: {avg_critic_loss:.4f}, Avg Enc-Dec Loss: {avg_enc_dec_loss:.4f}")
+        torch.save(model.state_dict(),f"./src/model/stegoAE_epoch_{epoch+1}.pth")
+    print("training Complete!!!")
+    torch.save(model.state_dict(),f"./src/model/stegoAutoencoder.pth")
