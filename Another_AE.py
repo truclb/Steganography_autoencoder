@@ -78,15 +78,16 @@ class SteganoNet(nn.Module):
             nn.Sigmoid()
         )
         
-        # Decoder
+        # Decoder (đã sửa)
         self.decoder = nn.Sequential(
             nn.Conv2d(3, 64, 3, padding=1),
             nn.ReLU(),
             nn.Conv2d(64, 64, 3, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((8, 10)),  # 8x10 = 80
+            nn.Conv2d(64, 32, 3, padding=1),  # Thêm lớp này
+            nn.AdaptiveAvgPool2d((8, 10)),
             nn.Flatten(),
-            nn.Linear(80, MESSAGE_SIZE),
+            nn.Linear(32 * 8 * 10, MESSAGE_SIZE),  # Đã sửa 32*8*10
             nn.Sigmoid()
         )
 
