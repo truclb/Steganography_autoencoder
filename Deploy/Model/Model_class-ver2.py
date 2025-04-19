@@ -8,7 +8,7 @@ from torch.nn.functional import conv2d
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torchvision.transforms as transforms
-
+from tqdm import tqdm
 # Define the device for computation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 8
@@ -146,7 +146,7 @@ class StegoReconstructor(nn.Module):
 
         self.conv4 = nn.Conv2d(128, 3, kernel_size=3, stride=1, padding=1)  # Output 3-channel image
     
-    def forward(self, embedded_features):
+    def forward(self, embedded_features, cover_image):
         # First conv layer
         x1 = self.conv1(embedded_features)
         x1 = self.relu1(x1)
@@ -160,7 +160,7 @@ class StegoReconstructor(nn.Module):
         x3 = self.relu3(x3)
 
         # Skip connection: Add the output from conv3 and the original input (embedded_features)
-        x = x3 + embedded_features  # Skip connection
+        x = x3 + cover_image  # Skip connection
         
         # Final conv layer
         output = self.conv4(x)
@@ -258,7 +258,7 @@ class SteganoModel(nn.Module):
         # Step 2: Fuse secret data (as extra channels) into the cover features.
         fused_features = self.secret_embedder(cover_features, secret_data)
         # Step 3: Reconstruct the stego image from the fused features.
-        stego_image = self.stego_reconstructor(fused_features)
+        stego_image = self.stego_reconstructor(fused_features,cover_image)
         
         #--> Step 4,5,6 --> Decode - Extracted_data.
         # Step 4: Extract features from the stego image.
