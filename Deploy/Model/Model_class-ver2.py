@@ -8,6 +8,7 @@ from torch.nn.functional import conv2d
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torchvision.transforms as transforms
+from tqdm import tqdm
 
 # Define the device for computation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -320,7 +321,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-cover_image_dataset = CoverImageDataset(image_dir='/kaggle/input/cocostuff-10k-v1-1/images', transform=transform)
+cover_image_dataset = CoverImageDataset(image_dir='/home/truclb/AnThongTin/cocostuff-10k-v1.1/images', transform=transform)
 
 # ---------------------------------------------------------------------
 # Loss Function for End-to-End Training
@@ -357,6 +358,6 @@ if __name__ == '__main__':
             avg_loss = total_loss_epoch / len(dataloader)
             print(f"Epoch [{epoch+1}/{num_epochs}] - Avg Loss: {avg_loss:.4f}")
             if ((epoch + 1) % 5) == 0:
-                torch.save(model.state_dict(),f"./src/model/stegoAE_epoch_{epoch+1}.pth")
+                torch.save(model.state_dict(),f"./Save_model/stegoAE_epoch_{epoch+1}.pth")
     print("Training complete!")
-    torch.save(model.state_dict(), './src/model/stegoAE_weights.pth')
+    torch.save(model.state_dict(), './Save_model/stegoAE_weights.pth')
