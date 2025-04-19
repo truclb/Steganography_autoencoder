@@ -56,11 +56,11 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         img_with_data = model_start.encode(img,secret_data)
 
         # Lưu ảnh với dữ liệu đã nhúng
-        img_with_data.save("image_with_data.jpg")
+        img_with_data.save("image_with_data_01.png")
 
         # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffered_with_data = BytesIO()
-        img_with_data.save(buffered_with_data, format="JPG")
+        img_with_data.save(buffered_with_data, format="PNG")
         img_with_data_str = base64.b64encode(buffered_with_data.getvalue()).decode("utf-8")
 
         return templates.TemplateResponse("embed-data.html", {

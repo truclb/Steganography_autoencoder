@@ -7,6 +7,9 @@ from PIL import Image
 from reedsolo import RSCodec
 import zlib
 from collections import Counter
+import numpy as np
+import torch
+from torch import nn
 # Load the trained SteganoModel
 from SteganoGANclass import SteganoModel  # Adjust the import path as needed
 from SteganoGANclass import SteganographyUtils
@@ -142,13 +145,22 @@ def encode(cover_path, stego_path, secret_text:str):
     B, C, H, W = cover_tensor.shape  # Convert to tensor
     secret_tensor = _make_payload(width=W,height=H,depth=8,text=secret_text)        
     secret_tensor = secret_tensor.to(device)
-    
     with torch.no_grad():
         stego_image, decoded_data, _ = model(cover_tensor, secret_tensor)
         # split and decode messages
-    decode_scy = torch.tanh(decoded_data)
-    print(decode_scy.view(-1) > 0)
-    print(secret_tensor.view(-1) > 0)
+    # np.set_printoptions(threshold=np.inf)
+    # with open('./tensor.txt', 'w') as f:
+    #     f.write(str((decoded_data.view(-1) > 0).int().numpy()))
+    #     f.write("\n")
+    #     f.write(str((secret_tensor.view(-1) > 0).int().numpy()))
+    bceloss = nn.BCELoss()
+    bceloss(input=(decoded_data.view(-1) > 0).float(), target=(secret_tensor.view(-1) > 0).float())
+    # tensor(7.2500)
+    bceloss
+    # BCELoss()
+    print(bceloss.weight)
+    print((decoded_data.view(-1) > 0).int().numpy())
+    print((secret_tensor.view(-1) > 0).int().numpy())
     # candidates = Counter()
     # bits = (decoded_data.detach().cpu().numpy().flatten() > 0).astype(int).tolist()
     #     # split and decode messages
