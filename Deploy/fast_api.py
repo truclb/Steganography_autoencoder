@@ -41,6 +41,7 @@ async def extract_data(request: Request, imageUpload: UploadFile = File(...)):
             "restoredImageURL": f"data:image/png;base64,{img_str}",
         })
     except Exception as e:
+        print(e)
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})
 
 # Endpoint nhúng dữ liệu vào ảnh
@@ -51,12 +52,9 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         img_bytes = await imageUploadEmbed.read()
         img = Image.open(BytesIO(img_bytes))
         secret_data = dataInput
-        print("secret data la: ",secret_data)
+        print("Secret data la: ",secret_data)
         # Nhúng dữ liệu vào ảnh (Ví dụ: thêm văn bản vào ảnh)
         img_with_data = model_start.encode(img,secret_data)
-
-        # Lưu ảnh với dữ liệu đã nhúng
-        img_with_data.save("image_with_data_01.png")
 
         # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffered_with_data = BytesIO()
@@ -68,4 +66,5 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
             "imageWithDataURL": f"data:image/png;base64,{img_with_data_str}"
         })
     except Exception as e:
+        print(e)
         return templates.TemplateResponse("error.html", {"request": request, "error": str(e)})

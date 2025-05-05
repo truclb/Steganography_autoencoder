@@ -7,81 +7,37 @@ import torchvision.transforms as transforms
 from PIL import Image
 from reedsolo import RSCodec
 import zlib
-
+from PIL import Image
+import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
-from Model.Model_class import SteganoModel 
-
+from Model.Model_class_v1 import Encoder, Decoder, SteganographyUtils 
+import torchvision.utils as vutils
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "./Deploy/Model/stegoAE_epoch_25.pth"  # Update to your correct path
+ENCODER_PATH = "./Deploy/Model/Save_Model/encoder_model.pth"
+DECODER_PATH = "./Deploy/Model/Save_Model/decoder_model.pth"
+STEGO_PATH = "./Deploy/Storage/Stego_images/stego_image.png"
+if not os.path.exists(ENCODER_PATH) or not os.path.exists(DECODER_PATH):
+    raise FileNotFoundError("❌ One or both model files not found!")
 
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
+encoder = Encoder()
+decoder = Decoder()
 
-#Load State_dict
-model = SteganoModel() 
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-model.to(device)
-model.eval()
+encoder.load_state_dict(torch.load(ENCODER_PATH, map_location=device))
+decoder.load_state_dict(torch.load(DECODER_PATH, map_location=device))
+
+encoder.to(device).eval()
+decoder.to(device).eval()
+
 
 # Define image transformation (must match training transforms)
 transform = transforms.Compose([
-    transforms.Resize((256, 256)),
+    transforms.Resize((1024,1024)),  # Resize giống với dataset đã train
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.Normalize((0.5,), (0.5,))
 ])
-
-# Utility functions remain the same
-class SteganographyUtils:
-    def __init__(self, rs_block_size=250):
-        self.rs = RSCodec(rs_block_size)
-    
-    def text_to_bits(self, text):
-        return self.bytearray_to_bits(self.text_to_bytearray(text))
-    
-    def bits_to_text(self, bits):
-        return self.bytearray_to_text(self.bits_to_bytearray(bits))
-    
-    def bytearray_to_bits(self, x):
-        result = []
-        for i in x:
-            bits = bin(i)[2:]
-            bits = "00000000"[len(bits):] + bits
-            result.extend([int(b) for b in bits])
-        return result
-    
-    def bits_to_bytearray(self, bits):
-        ints = []
-        for b in range(len(bits) // 8):
-            byte = bits[b * 8:(b + 1) * 8]
-            ints.append(int("".join([str(bit) for bit in byte]), 2))
-        return bytearray(ints)
-    
-    def text_to_bytearray(self, text):
-        x = self.rs.encode(bytearray(text.encode("utf-8")))
-        return x
-    
-    def bytearray_to_text(self, x):
-        try:
-            text = self.rs.decode(x)
-            return text.decode("utf-8")
-        except Exception as e:
-            print(f"Error during decoding: {e}")
-            return False
-
-    # ... (Other utility methods remain unchanged)
-
-def image_to_base64(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
-
-def base64_to_image(base64_string, output_path):
-    image_data = base64.b64decode(base64_string)
-    with open(output_path, "wb") as f:
-        f.write(image_data)
-
+utils = SteganographyUtils(max_msg_len=256)
 # Embedding function: Encodes secret data into cover image using the loaded model.
 def encode(cover_input, secret_data):
     print('------This is ENCODE function------')
@@ -92,30 +48,19 @@ def encode(cover_input, secret_data):
     else:
         # Trường hợp còn lại là buffer (ví dụ BytesIO)
         cover_image = Image.open(cover_input).convert("RGB")
-    #stego_image = cover_image
-    cover_tensor = transform(cover_image).unsqueeze(0).to(device)  # Convert to tensor
+    test_img = transform(cover_image).unsqueeze(0).to(device)  # (1, C, H, W)
 
-    # Encode chuỗi thành tensor
-    secret_bin_str = ''.join(format(ord(c), '08b') for c in secret_data)
-    secret_bin = [int(bit) for bit in secret_bin_str]
-    required_length = 8 * 256 * 256
-    if len(secret_bin) < required_length:
-        secret_bin += [0] * (required_length - len(secret_bin))
-    else:
-        secret_bin = secret_bin[:required_length]
-    secret_tensor = torch.Tensor(secret_bin).view(1, 8, 256, 256).to(device)
-    
-    
+    # Mã hóa chuỗi thành tensor
+    H, W = test_img.shape[-2], test_img.shape[-1]
+    test_msg_tensor = utils.text_to_tensor(secret_data, H, W).unsqueeze(0).to(device)  # (1, 1, H, W)
+
+    # Dùng encoder để mã hóa
     with torch.no_grad():
-        stego_image, _, _, _ = model(cover_tensor, secret_tensor)
-    
-    # Convert tensor to PIL image
-    stego_image = stego_image.squeeze(0).permute(1, 2, 0).cpu().numpy()
-    stego_image = (stego_image * 255).clip(0, 255).astype("uint8")
-    #Image.fromarray(stego_image).save(stego_path)
-    stego_pil = Image.fromarray(stego_image)
+        stego_image = encoder(test_img, test_msg_tensor)
+    vutils.save_image(stego_image[0], STEGO_PATH)
+    stego_pil = Image.open(STEGO_PATH).convert("RGB")
     print(f"✅ Đã mã hóa chuỗi '{secret_data[:30]}...' vào ảnh")
-    return stego_pil #Hàm return trả về hệ thống.
+    return stego_pil #Hàm return trả về hệ thống để hiển thị lên màn hình
 
 # Decoding function: Extracts secret data from the stego image using the loaded model.
 def decode(stego_input):
@@ -134,11 +79,8 @@ def decode(stego_input):
     stego_tensor = transform(stego_image).unsqueeze(0).to(device)  # Convert to tensor
     # Gọi hàm model để chạy và lấy đặc trưng ra.
     with torch.no_grad():
-        dummy_secret = torch.zeros((1, 8, 256, 256), device=device)
-        _, recovered_secret, _, _ = model(stego_tensor, dummy_secret)
+       recovered_secret = decoder(stego_tensor)
 
-    recovered_bits = recovered_secret.cpu().numpy().flatten().round().astype(int)
-    byte_list = [int("".join(map(str, recovered_bits[i:i+8])), 2) for i in range(0, len(recovered_bits), 8)]
-    recovered_text = "".join([chr(b) for b in byte_list if 32 <= b <= 126])
+    recovered_text = utils.tensor_to_text(recovered_secret[0])
     print(f"✅ Giải mã thành công chuỗi: ",recovered_text)
     return recovered_text,recovered_img
