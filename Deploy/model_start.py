@@ -15,7 +15,7 @@ from Model.Model_class import SteganoModel
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Path to the saved model file (assumes the entire model was saved)
-MODEL_PATH = "./Deploy/Model/stego_model_weights.pth"  # Update to your correct path
+MODEL_PATH = "./Deploy/Model/stegoAE_epoch_25.pth"  # Update to your correct path
 
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"Trained model file '{MODEL_PATH}' not found!")
