@@ -15,7 +15,7 @@ from tqdm import tqdm
 # ==== Thiết lập ====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_MSG_LEN = 256  # tối đa 32 ký tự
-
+NUM_EPOCH = 20
 # ==== Hàm chuyển đổi văn bản <-> tensor ảnh ====
 def text_to_binary(text):
     bits = ''.join([format(byte, '08b') for byte in text.encode('utf-8')])  # Dùng UTF-8 thay vì ASCII
@@ -41,15 +41,24 @@ def tensor_to_text(tensor):
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(4, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 3, kernel_size=1)
-        )
+
+        self.conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1)
+        self.relu1 = nn.ReLU()
+
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)  # thêm tầng
+        self.relu2 = nn.ReLU()
+
+        self.conv3 = nn.Conv2d(64, 3, kernel_size=1)  # giữ nguyên đầu ra
 
     def forward(self, image, message):
-        combined = torch.cat([image, message], dim=1)
-        encoded_image = self.encoder(combined)
+        combined = torch.cat([image, message], dim=1)  # (B, 4, H, W)
+
+        x1 = self.relu1(self.conv1(combined))          # (B, 64, H, W)
+        x2 = self.relu2(self.conv2(x1))                # (B, 64, H, W)
+
+        x2 = x2 + x1  # simple skip connection
+
+        encoded_image = self.conv3(x2)                 # (B, 3, H, W)
         return encoded_image
 
 # ==== Mô hình Decoder ====
@@ -59,16 +68,16 @@ class Decoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(64, 1, kernel_size=1),
-            nn.Sigmoid()
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 1, kernel_size=1),
+            nn.Sigmoid()  # đảm bảo đầu ra trong khoảng [0,1]
         )
 
     def forward(self, encoded_image):
         return self.decoder(encoded_image)
-    
+        
 # ==== Dataset ====
-
-
 class CocoStuffDataset(Dataset):
     def __init__(self, img_dir, transform=None):
         self.img_dir = img_dir
@@ -91,7 +100,7 @@ class CocoStuffDataset(Dataset):
         return img, 0  # Trả về ảnh + nhãn giả (để giữ cú pháp CIFAR)
 
 # Định nghĩa dataset CocoStuff
-img_dir = r"F:\Master_Course\HK1\AnThongTin\DoAnCuoiKy\Dataset\images"
+img_dir = r"/kaggle/input/cocostuff-10k-v1-1/images"
 transform = transforms.Compose([
     transforms.Resize((256,256)),  # Resize về kích thước 32x32 như CIFAR
     transforms.ToTensor(),        # Chuyển ảnh sang tensor (C, H, W) ∈ [0,1]
@@ -112,9 +121,9 @@ optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameter
 criterion = nn.BCELoss()
 
 # ==== Huấn luyện ====
-alpha = 0.90  # ưu tiên độ trung thực ảnh
-for epoch in range(3):
-    progress_bar = tqdm(trainloader, desc=f"Epoch {epoch+1}/{3}", unit="batch")
+alpha = 0.999  # ưu tiên độ trung thực ảnh
+for epoch in range(NUM_EPOCH):
+    progress_bar = tqdm(trainloader, desc=f"Epoch {epoch+1}/{NUM_EPOCH}", unit="batch")
     total_loss_epoch = 0.0
     for images, _ in progress_bar:
         images = images.to(device)
@@ -136,10 +145,11 @@ for epoch in range(3):
         total_loss_epoch += loss.item()
         progress_bar.set_postfix(loss=loss.item())
     avg_loss = total_loss_epoch / len(trainloader)
-    print(f"Epoch [{epoch+1}/{3}] - Avg Loss: {avg_loss:.4f}")    
+    print(f"Epoch [{epoch+1}/{NUM_EPOCH}] - Avg Loss: {avg_loss:.4f}")    
     print(f"Epoch {epoch+1} | Loss msg: {loss_msg.item():.4f} | Loss img: {loss_img.item():.4f}")
+    if (epoch + 1) % 5 == 0:
+        torch.save(encoder.state_dict(),f"/kaggle/working/encoder_{epoch+1}.pth")
+        torch.save(decoder.state_dict(),f"/kaggle/working/dencoder_{epoch+1}.pth")
 print("Training complete!")
-torch.save(encoder.state_dict(), '.\Deploy\Model\Save_Model\encoder_v2.pth')
-torch.save(encoder.state_dict(), '.\Deploy\Model\Save_Model\dencoder_v2.pth')
-
-
+torch.save(encoder.state_dict(), '/kaggle/working/encoder_v2.pth')
+torch.save(decoder.state_dict(), '/kaggle/working/dencoder_v2.pth')
