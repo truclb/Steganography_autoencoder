@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 import os
 from PIL import Image
 from torchvision import transforms
+from tqdm import tqdm
 
 # ==== Thiết lập ====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +73,7 @@ class CocoStuffDataset(Dataset):
     def __init__(self, img_dir, transform=None):
         self.img_dir = img_dir
         self.transform = transform
-        self.img_list = [f for f in os.listdir(img_dir) if f.endswith('.png')]
+        self.img_list = [f for f in os.listdir(img_dir) if f.endswith('.jpg')]
 
     def __len__(self):
         return len(self.img_list)
@@ -90,7 +91,7 @@ class CocoStuffDataset(Dataset):
         return img, 0  # Trả về ảnh + nhãn giả (để giữ cú pháp CIFAR)
 
 # Định nghĩa dataset CocoStuff
-img_dir = r"D:\LinhTinh\StegnoGraphy\DoAnCuoiKy\data"
+img_dir = r"F:\Master_Course\HK1\AnThongTin\DoAnCuoiKy\Dataset\images"
 transform = transforms.Compose([
     transforms.Resize((256,256)),  # Resize về kích thước 32x32 như CIFAR
     transforms.ToTensor(),        # Chuyển ảnh sang tensor (C, H, W) ∈ [0,1]
@@ -110,13 +111,12 @@ decoder = Decoder().to(device)
 optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=1e-3)
 criterion = nn.BCELoss()
 
-
-
 # ==== Huấn luyện ====
-alpha = 0.7  # ưu tiên độ trung thực ảnh
-
+alpha = 0.90  # ưu tiên độ trung thực ảnh
 for epoch in range(3):
-    for images, _ in trainloader:
+    progress_bar = tqdm(trainloader, desc=f"Epoch {epoch+1}/{3}", unit="batch")
+    total_loss_epoch = 0.0
+    for images, _ in progress_bar:
         images = images.to(device)
         B, C, H, W = images.shape
 
@@ -133,7 +133,13 @@ for epoch in range(3):
 
         loss.backward()
         optimizer.step()
+        total_loss_epoch += loss.item()
+        progress_bar.set_postfix(loss=loss.item())
+    avg_loss = total_loss_epoch / len(trainloader)
+    print(f"Epoch [{epoch+1}/{3}] - Avg Loss: {avg_loss:.4f}")    
     print(f"Epoch {epoch+1} | Loss msg: {loss_msg.item():.4f} | Loss img: {loss_img.item():.4f}")
+print("Training complete!")
+torch.save(encoder.state_dict(), '.\Deploy\Model\Save_Model\encoder_v2.pth')
+torch.save(encoder.state_dict(), '.\Deploy\Model\Save_Model\dencoder_v2.pth')
 
- 
 
