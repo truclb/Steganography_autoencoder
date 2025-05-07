@@ -10,7 +10,7 @@ import zlib
 from PIL import Image
 import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
-from Model.Model_class_v1 import Encoder, Decoder, SteganographyUtils 
+from Deploy.Model.Model_class import Encoder, Decoder, SteganographyUtils 
 import torchvision.utils as vutils
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
