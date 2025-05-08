@@ -18,9 +18,9 @@ import torchvision.utils as vutils
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v3.pth"
-DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v3.pth"
-STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v3.png"
+ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v2.pth"
+DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v2.pth"
+STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v2.png"
 if not os.path.exists(ENCODER_PATH) or not os.path.exists(DECODER_PATH):
     raise FileNotFoundError("❌ One or both model files not found!")
 
