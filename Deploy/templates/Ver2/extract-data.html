@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Extract Data from Image</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Roboto Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: #0056a3;
+      color: white;
+      padding: 20px 0;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    header h1 {
+      margin: 0;
+      font-weight: 700;
+      font-size: 28px;
+    }
+
+    .form-section {
+      background: #ffffff;
+      padding: 30px;
+      margin-top: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    #result {
+      margin-top: 40px;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    .btn-refresh {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #0073e6;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .btn-refresh:hover {
+      background-color: #005ec4;
+    }
+
+    @media (max-width: 600px) {
+      .btn-refresh {
+        padding: 8px 16px;
+        top: 15px;
+        right: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header class="d-flex align-items-center justify-content-center">
+  <h1 class="ms-2">Image Data Extractor</h1>
+</header>
+
+<div class="container">
+  <!-- Extract Form -->
+  <div class="form-section">
+    <h3 class="text-primary mb-4">🔍 Extract Data from Image</h3>
+    <form action="/extract-data/" method="POST" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label for="imageUpload" class="form-label">Choose an image to extract data:</label>
+        <input type="file" class="form-control" id="imageUpload" name="imageUpload" accept="image/*" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Extract Data</button>
+    </form>
+  </div>
+
+  <!-- Extracted Result -->
+  <div id="result" class="mt-4">
+    <h3 class="text-success">Extracted Data:</h3>
+    {% if extractedData %}
+      <p>{{ extractedData }}</p>
+    {% else %}
+      <p class="text-muted">No data extracted yet.</p>
+    {% endif %}
+
+    <h3 class="text-success mt-4">Recovered Image:</h3>
+    {% if restoredImageURL %}
+      <img src="{{ restoredImageURL }}" alt="Restored image">
+    {% else %}
+      <p class="text-muted">No image recovered yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Refresh Button -->
+<button type="button" class="btn-refresh" onclick="window.location.href = '/';">⟳ Reset</button>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
