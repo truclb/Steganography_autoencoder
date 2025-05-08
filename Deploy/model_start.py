@@ -12,14 +12,15 @@ import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
 
 from Model.Model_class_v2 import Encoder, Decoder, SteganographyUtils 
+#from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils 
 
 import torchvision.utils as vutils
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_15.pth"
-DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_15.pth"
-STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v2.png"
+ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v3.pth"
+DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v3.pth"
+STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v3.png"
 if not os.path.exists(ENCODER_PATH) or not os.path.exists(DECODER_PATH):
     raise FileNotFoundError("❌ One or both model files not found!")
 
