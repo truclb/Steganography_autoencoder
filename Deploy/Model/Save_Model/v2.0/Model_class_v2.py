@@ -13,13 +13,12 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import base64
-import reedsolo
 # ---------------------------------------------------------------------
 # Utility Class (unchanged)
 class SteganographyUtils:
     def __init__(self, max_msg_len=256):
         self.MAX_MSG_LEN = max_msg_len  # Độ dài tối đa của tin nhắn (tính theo ký tự)
-        self.rs = reedsolo.RSCodec(nsym=10)
+
     def text_to_binary(self, text):
         bits = ''.join([format(byte, '08b') for byte in text.encode('utf-8')])
         bits = bits.ljust(self.MAX_MSG_LEN * 8, '0')  # Pad đến độ dài cố định
@@ -29,51 +28,16 @@ class SteganographyUtils:
         byte_array = bytearray([int(bits[i:i+8], 2) for i in range(0, len(bits), 8)])
         return byte_array.decode('utf-8', errors='ignore')
 
-    # Hàm chuyển đổi văn bản thành tensor với mã hóa Reed-Solomon
-    def text_to_tensor(self,text, H, W):
-        # Bước 1: Chuyển văn bản thành nhị phân
+    def text_to_tensor(self, text, H, W):
         bits = self.text_to_binary(text)
-        
-        # Bước 2: Chuyển nhị phân thành mảng byte
-        byte_array = np.array([int(b) for b in bits], dtype=np.uint8)
-        byte_array = np.packbits(byte_array)  # Chuyển bits thành bytes
-        
-        # Bước 3: Áp dụng mã hóa Reed-Solomon
-        encoded_bytes = self.rs.encode(byte_array.tobytes())  # Mã hóa bằng Reed-Solomon
-        
-        # Bước 4: Chuyển đổi byte đã mã hóa thành chuỗi nhị phân
-        encoded_bits = np.unpackbits(np.frombuffer(encoded_bytes, dtype=np.uint8)).astype(np.float32)
+        arr = np.array([int(b) for b in bits], dtype=np.float32)
+        arr = np.resize(arr, (H, W))  # reshape thành ảnh
+        return torch.tensor(arr).unsqueeze(0)  # (1, H, W)
 
-        # Bước 5: Resize cho phù hợp với kích thước H, W
-        total_len = H * W
-        if len(encoded_bits) < total_len:
-            encoded_bits = np.pad(encoded_bits, (0, total_len - len(encoded_bits)))  # Padding nếu thiếu
-        else:
-            encoded_bits = encoded_bits[:total_len]  # Cắt nếu dài hơn
-        encoded_bits = encoded_bits.reshape((1, H, W))
-        return torch.tensor(encoded_bits)  # Trả về tensor với shape (1, H, W)
-        
     def tensor_to_text(self, tensor):
-        # Chuyển tensor thành mảng numpy và phẳng ra thành 1 chiều
         bits = tensor.detach().cpu().numpy().flatten()
-
-        # Chuyển đổi thành chuỗi nhị phân
         bits = ['1' if b > 0.5 else '0' for b in bits[:self.MAX_MSG_LEN * 8]]
-        binary_str = ''.join(bits)
-        
-        # Chuyển chuỗi nhị phân thành mảng byte
-        byte_array = np.array([int(b) for b in binary_str], dtype=np.uint8)
-        byte_array = np.packbits(byte_array)
-        
-        # Giải mã Reed-Solomon để lấy lại dữ liệu gốc
-        decoded_bytes = self.rs.decode(byte_array.tobytes())[0]
-
-        # Chuyển lại thành chuỗi nhị phân
-        decoded_bits = np.unpackbits(np.frombuffer(decoded_bytes, dtype=np.uint8)).astype(np.float32)
-
-        # Chuyển mảng nhị phân thành văn bản
-        return self.binary_to_text(''.join([str(int(b)) for b in decoded_bits]))
-
+        return self.binary_to_text(''.join(bits))
     # Hàm mã hóa AES
 def aes_encrypt(plaintext, key="abc"):
         # Đảm bảo key có độ dài 32 byte (AES-256)

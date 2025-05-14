@@ -10,21 +10,19 @@ import zlib
 from PIL import Image
 import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
 import base64
 from Model.Model_class_v2 import Encoder, Decoder, SteganographyUtils, aes_encrypt,aes_decrypt, calculate_actual_bpp
 import torch.nn.functional as F
-#from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils 
-
+#from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils,calculate_actual_bpp 
 import torchvision.utils as vutils
+
+
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v2.pth"
-DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v2.pth"
-STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v2.png"
+ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v2_1.pth"
+DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v2_1.pth"
+STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v2_1.png"
 if not os.path.exists(ENCODER_PATH) or not os.path.exists(DECODER_PATH):
     raise FileNotFoundError("❌ One or both model files not found!")
 
