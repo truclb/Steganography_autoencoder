@@ -9,6 +9,10 @@ from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torchvision.transforms as transforms
 import numpy as np
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from Crypto.Random import get_random_bytes
+import base64
 # ---------------------------------------------------------------------
 # Utility Class (unchanged)
 class SteganographyUtils:
@@ -34,9 +38,47 @@ class SteganographyUtils:
         bits = tensor.detach().cpu().numpy().flatten()
         bits = ['1' if b > 0.5 else '0' for b in bits[:self.MAX_MSG_LEN * 8]]
         return self.binary_to_text(''.join(bits))
-# ---------------------------------------------------------------------
+    # Hàm mã hóa AES
+def aes_encrypt(plaintext, key="abc"):
+        # Đảm bảo key có độ dài 32 byte (AES-256)
+        key = key.ljust(32)[:32].encode('utf-8')
+        iv = get_random_bytes(16)  # Khởi tạo vector ngẫu nhiên
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        ciphertext = cipher.encrypt(pad(plaintext.encode('utf-8'), AES.block_size))
+        return base64.b64encode(iv + ciphertext).decode('utf-8')  # Trả về base64 để dễ lưu trữ
 
-# ==== Mô hình Encoder ====
+    # Hàm giải mã AES
+def aes_decrypt(encrypted_text, key="abc"):
+        key = key.ljust(32)[:32].encode('utf-8')
+        encrypted_data = base64.b64decode(encrypted_text)
+        iv = encrypted_data[:16]
+        ciphertext = encrypted_data[16:]
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+        return plaintext.decode('utf-8')
+# ---------------------------------------------------------------------
+def calculate_actual_bpp(message_tensor: torch.Tensor, image_tensor: torch.Tensor) -> float:
+    """
+    Tính bpp thực tế từ message_tensor và image_tensor.
+
+    Args:
+        message_tensor: Tensor chứa dữ liệu nhúng, shape (B, N, H, W) — thường N = 1.
+        image_tensor: Tensor ảnh gốc, shape (B, 3, H, W).
+
+    Returns:
+        float: Giá trị bpp trung bình thực tế.
+    """
+    batch_size = image_tensor.size(0)
+    _, _, H, W = image_tensor.shape
+
+    # Tổng số bit nhúng mỗi ảnh
+    bits_per_message = message_tensor.numel() // batch_size
+    pixels_per_image = H * W
+
+    bpp = bits_per_message / pixels_per_image
+    return bpp
+
+
 # ==== Mô hình Encoder ====
 class Encoder(nn.Module):
     def __init__(self):
