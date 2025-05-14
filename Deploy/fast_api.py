@@ -28,7 +28,7 @@ async def extract_data(request: Request, imageUpload: UploadFile = File(...)):
         img = Image.open(BytesIO(img_bytes))
 
         # Gọi decode không cần output_path nữa
-        extracted_data, restored_image = model_start.decode(img)
+        extracted_data, restored_image = model_start.extract_Data(img)
 
          # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffer_display = BytesIO()
@@ -54,7 +54,7 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         secret_data = dataInput
         print("Secret data la: ",secret_data)
         # Nhúng dữ liệu vào ảnh (Ví dụ: thêm văn bản vào ảnh)
-        img_with_data = model_start.encode(img,secret_data)
+        img_with_data,ssim_value,bpp_value = model_start.embed_Data(img,secret_data)
 
         # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffered_with_data = BytesIO()
@@ -63,7 +63,9 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
 
         return templates.TemplateResponse("embed-data.html", {
             "request": request,
-            "imageWithDataURL": f"data:image/png;base64,{img_with_data_str}"
+            "imageWithDataURL": f"data:image/png;base64,{img_with_data_str}",
+            "ssim_value": f"{ssim_value}",
+            "bpp_value": f"{bpp_value}"
         })
     except Exception as e:
         print(e)

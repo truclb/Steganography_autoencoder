@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extract and Embed Data in Images</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            margin-bottom: 40px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+        }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+
+        .btn-refresh {
+            background-color: #3366CC;
+            color: rgb(255, 255, 255);
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            position: fixed; /* Fix the button in a fixed position */
+            top: 20px; /* Distance from the top */
+            right: 20px; /* Distance from the right */
+        }
+        .btn-refresh:hover {
+            background-color: #0026ff;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Form 2: Embed Data into Image -->
+    <form action="/embed-data/" method="POST" enctype="multipart/form-data">
+        <h3>Embed Data into Image</h3>
+        <div class="form-group">
+            <label for="imageUploadEmbed">Choose an image to embed data:</label>
+            <input type="file" id="imageUploadEmbed" name="imageUploadEmbed" accept="image/*">
+        </div>
+        <div class="form-group">
+            <label for="dataInput">Enter the data to embed into the image:</label>
+            <input type="text" id="dataInput" name="dataInput" placeholder="Enter data" required>
+        </div>
+        <div class="form-group">
+            <input type="submit" value="Embed Data into Image">
+        </div>
+    </form>
+
+    <div id="result">
+        <h3>Stego Image</h3>
+        {% if imageWithDataURL %}
+        <img src="{{ imageWithDataURL }}" alt="Image with embedded data">
+        {% endif %}
+    </div>
+    
+
+    <!-- Refresh Button -->
+    <button type="button" class="btn-refresh" onclick="window.location.href = '/';">Reset</button>
+
+</body>
+</html>

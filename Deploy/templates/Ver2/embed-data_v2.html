@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Extract Data from Image</title>
+  <title>Embed Data into Image</title>
 
-  <!-- Bootstrap 5 CSS -->
+  <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <!-- Roboto Font -->
@@ -80,46 +80,70 @@
         right: 15px;
       }
     }
+
+    .result-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ssim-value {
+      margin-left: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #28a745;
+    }
+
   </style>
 </head>
 <body>
 
 <header class="d-flex align-items-center justify-content-center">
-  <h1 class="ms-2">Image Data Extractor</h1>
+  <h1>Embed Data into Image</h1>
 </header>
 
 <div class="container">
-  <!-- Extract Form -->
+  <!-- Embed Form -->
   <div class="form-section">
-    <h3 class="text-primary mb-4">🔍 Extract Data from Image</h3>
-    <form action="/extract-data/" method="POST" enctype="multipart/form-data">
+    <h3 class="text-primary mb-4">🖼️ Embed Data</h3>
+    <form action="/embed-data/" method="POST" enctype="multipart/form-data">
       <div class="mb-3">
-        <label for="imageUpload" class="form-label">Choose an image to extract data:</label>
-        <input type="file" class="form-control" id="imageUpload" name="imageUpload" accept="image/*" required>
+        <label for="imageUploadEmbed" class="form-label">Choose an image to embed data:</label>
+        <input type="file" class="form-control" id="imageUploadEmbed" name="imageUploadEmbed" accept="image/*" required>
       </div>
-      <button type="submit" class="btn btn-primary">Extract Data</button>
+      <div class="mb-3">
+        <label for="dataInput" class="form-label">Enter the data to embed:</label>
+        <input type="text" class="form-control" id="dataInput" name="dataInput" placeholder="Enter data..." required>
+      </div>
+      <button type="submit" class="btn btn-success">Embed Data into Image</button>
     </form>
   </div>
 
-  <!-- Extracted Result -->
+  <!-- Embed Result -->
   <div id="result" class="mt-4">
-    <h3 class="text-success">Extracted Data:</h3>
-    {% if extractedData %}
-      <p>{{ extractedData }}</p>
-    {% else %}
-      <p class="text-muted">No data extracted yet.</p>
-    {% endif %}
+    <h3 class="text-success">Stego Image:</h3>
 
-    <h3 class="text-success mt-4">Recovered Image:</h3>
-    {% if restoredImageURL %}
-      <img src="{{ restoredImageURL }}" alt="Restored image">
-    {% else %}
-      <p class="text-muted">No image recovered yet.</p>
-    {% endif %}
+    <div class="result-container">
+      <div>
+        {% if imageWithDataURL %}
+          <img src="{{ imageWithDataURL }}" alt="Image with embedded data">
+        {% else %}
+          <p class="text-muted">No image generated yet.</p>
+        {% endif %}
+      </div>
+
+      <div class="ssim-value">
+        {% if ssim_value %}
+          <p>SSIM: {{ ssim_value }}</p>
+        {% else %}
+          <p class="text-muted">SSIM not calculated yet.</p>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- Refresh Button -->
+<!-- Reset Button -->
 <button type="button" class="btn-refresh" onclick="window.location.href = '/';">⟳ Reset</button>
 
 <!-- Bootstrap JS -->
