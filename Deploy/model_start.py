@@ -11,7 +11,7 @@ from PIL import Image
 import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
 import base64
-from Model.Model_class_v2 import Encoder, Decoder, SteganographyUtils, aes_encrypt,aes_decrypt, calculate_actual_bpp
+from Deploy.Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils, aes_encrypt,aes_decrypt, calculate_actual_bpp,CoverReconstructor
 import torch.nn.functional as F
 #from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils,calculate_actual_bpp 
 import torchvision.utils as vutils
@@ -20,21 +20,24 @@ import torchvision.utils as vutils
 # Define the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v2_1.pth"
-DECODER_PATH = ".\Deploy\Model\Save_Model\dencoder_v2_1.pth"
+ENCODER_PATH = ".\Deploy\Model\Save_Model\encoder_v3.pth"
+DECODER_PATH = ".\Deploy\Model\Save_Model\decoder_v3.pth"
+RECONSTRUCT_PATH = ".\Deploy\Model\Save_Model\c_reconstruct_v3.pth"
 STEGO_PATH = ".\Deploy\Storage\Stego_images\stego_image_v2_1.png"
+RECOVER_PATH=".\Deploy\Storage\Stego_images\cover_image_v2_1.png"
 if not os.path.exists(ENCODER_PATH) or not os.path.exists(DECODER_PATH):
     raise FileNotFoundError("❌ One or both model files not found!")
 
 encoder = Encoder()
 decoder = Decoder()
-
+reconstruct = CoverReconstructor()
 encoder.load_state_dict(torch.load(ENCODER_PATH, map_location=device))
 decoder.load_state_dict(torch.load(DECODER_PATH, map_location=device))
+reconstruct.load_state_dict(torch.load(RECONSTRUCT_PATH, map_location=device))
 
 encoder.to(device).eval()
 decoder.to(device).eval()
-
+reconstruct.to(device).eval()
 
 # Define image transformation (must match training transforms)
 transform = transforms.Compose([
@@ -85,13 +88,13 @@ def extract_Data(stego_input):
         # Trường hợp còn lại là buffer (ví dụ BytesIO)
         stego_image = Image.open(stego_input).convert("RGB")
     recovered_text = 'ERROR - cannot recovery'
-    recovered_img = stego_image
-
     stego_tensor = transform(stego_image).unsqueeze(0).to(device)  # Convert to tensor
     # Gọi hàm model để chạy và lấy đặc trưng ra.
     with torch.no_grad():
        recovered_secret = decoder(stego_tensor)
-
+       recovered_img = reconstruct(stego_tensor,recovered_secret)
+    vutils.save_image(recovered_img[0],RECOVER_PATH)
+    recovered_img = Image.open(RECOVER_PATH).convert("RGB")
     recovered_text = utils.tensor_to_text(recovered_secret[0])
     recovered_text = aes_decrypt(recovered_text)
     print(f"✅ Giải mã thành công chuỗi: ",recovered_text)

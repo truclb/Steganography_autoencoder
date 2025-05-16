@@ -14,7 +14,7 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
 import base64
 import reedsolo
-#-----------------------------------------
+# ---------------------------------------------------------------------
 # Utility Class (unchanged)
 class SteganographyUtils:
     def __init__(self, max_msg_len=256):
@@ -52,35 +52,46 @@ class SteganographyUtils:
             encoded_bits = encoded_bits[:total_len]  # Cắt nếu dài hơn
         encoded_bits = encoded_bits.reshape((1, H, W))
         return torch.tensor(encoded_bits)  # Trả về tensor với shape (1, H, W)
+        
     def tensor_to_text(self, tensor):
         # Chuyển tensor thành mảng numpy và phẳng ra thành 1 chiều
         bits = tensor.detach().cpu().numpy().flatten()
 
-        # Không cắt bits ở đây, giữ nguyên độ dài
-        bits = ['1' if b > 0.5 else '0' for b in bits]
+        # Chuyển đổi thành chuỗi nhị phân
+        bits = ['1' if b > 0.5 else '0' for b in bits[:self.MAX_MSG_LEN * 8]]
         binary_str = ''.join(bits)
-
+        
         # Chuyển chuỗi nhị phân thành mảng byte
         byte_array = np.array([int(b) for b in binary_str], dtype=np.uint8)
         byte_array = np.packbits(byte_array)
-
-        try:
-            # Giải mã Reed-Solomon
-            decoded_bytes = self.rs.decode(byte_array.tobytes())[0]
-        except Exception as e:
-            print("Reed-Solomon decode failed:", e)
-            return "Không thể giải mã thành công hệ thống"
+        
+        # Giải mã Reed-Solomon để lấy lại dữ liệu gốc
+        decoded_bytes = self.rs.decode(byte_array.tobytes())[0]
 
         # Chuyển lại thành chuỗi nhị phân
         decoded_bits = np.unpackbits(np.frombuffer(decoded_bytes, dtype=np.uint8)).astype(np.float32)
 
-        # Cắt decoded_bits sau khi giải mã (nếu cần)
-        decoded_bits = decoded_bits[:self.MAX_MSG_LEN * 8]
-
-        # Chuyển thành văn bản
+        # Chuyển mảng nhị phân thành văn bản
         return self.binary_to_text(''.join([str(int(b)) for b in decoded_bits]))
 
-# ---------------------------------------------------------------------
+    # Hàm mã hóa AES
+def aes_encrypt(plaintext, key="abc"):
+        # Đảm bảo key có độ dài 32 byte (AES-256)
+        key = key.ljust(32)[:32].encode('utf-8')
+        iv = get_random_bytes(16)  # Khởi tạo vector ngẫu nhiên
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        ciphertext = cipher.encrypt(pad(plaintext.encode('utf-8'), AES.block_size))
+        return base64.b64encode(iv + ciphertext).decode('utf-8')  # Trả về base64 để dễ lưu trữ
+
+    # Hàm giải mã AES
+def aes_decrypt(encrypted_text, key="abc"):
+        key = key.ljust(32)[:32].encode('utf-8')
+        encrypted_data = base64.b64decode(encrypted_text)
+        iv = encrypted_data[:16]
+        ciphertext = encrypted_data[16:]
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+        return plaintext.decode('utf-8')
 # ---------------------------------------------------------------------
 def calculate_actual_bpp(message_tensor: torch.Tensor, image_tensor: torch.Tensor) -> float:
     """
@@ -102,115 +113,62 @@ def calculate_actual_bpp(message_tensor: torch.Tensor, image_tensor: torch.Tenso
 
     bpp = bits_per_message / pixels_per_image
     return bpp
+
+
 # ==== Mô hình Encoder ====
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
-# === ENCODER ===
-        self.conv1 = self.conv_block(4, 64)  # 4 channels: image (3) + message (1)
-        self.pool1 = nn.MaxPool2d(2)         # giảm kích thước ảnh xuống H/2
 
-        self.conv2 = self.conv_block(64, 128)
-        self.pool2 = nn.MaxPool2d(2)         # giảm kích thước ảnh xuống H/4
+        self.conv1 = nn.Conv2d(4, 64, kernel_size=3, padding=1)
+        self.relu1 = nn.ReLU()
 
-        self.conv3 = self.conv_block(128, 256)  # Tầng sâu nhất
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)  # thêm tầng
+        self.relu2 = nn.ReLU()
 
-        # === DECODER ===
-        self.up2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)  # H/2
-        self.dec2 = self.conv_block(256, 128)  # Gộp skip connection
-
-        self.up1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)   # H
-        self.dec1 = self.conv_block(128, 64)   # Gộp skip connection
-
-        self.out_conv = nn.Conv2d(64, 3, kernel_size=1)  # đầu ra ảnh RGB
-        
-
-    def conv_block(self, in_ch, out_ch):
-        """ Tầng Conv chuẩn với ReLU activation """
-        return nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
-            nn.ReLU()
-        )
+        self.conv3 = nn.Conv2d(64, 3, kernel_size=1)  # giữ nguyên đầu ra
 
     def forward(self, image, message):
-        """ Chạy dữ liệu qua Encoder và Decoder với Skip Connections """
-        x = torch.cat([image, message], dim=1)  # Kết hợp ảnh và thông điệp (B, 4, H, W)
+        combined = torch.cat([image, message], dim=1)  # (B, 4, H, W)
 
-        # === ENCODER ===
-        e1 = self.conv1(x)          # (B, 64, H, W)
-        p1 = self.pool1(e1)         # (B, 64, H/2, W/2)
+        x1 = self.relu1(self.conv1(combined))          # (B, 64, H, W)
+        x2 = self.relu2(self.conv2(x1))                # (B, 64, H, W)
 
-        e2 = self.conv2(p1)         # (B, 128, H/2, W/2)
-        p2 = self.pool2(e2)         # (B, 128, H/4, W/4)
+        x2 = x2 + x1  # simple skip connection
 
-        e3 = self.conv3(p2)         # (B, 256, H/4, W/4)
-
-        # === DECODER ===
-        d2 = self.up2(e3)           # (B, 128, H/2, W/2)
-        d2 = torch.cat([d2, e2], dim=1)  # Skip connection: concat với đặc trưng từ encoder
-        d2 = self.dec2(d2)
-
-        d1 = self.up1(d2)           # (B, 64, H, W)
-        d1 = torch.cat([d1, e1], dim=1)  # Skip connection: concat với đặc trưng từ encoder
-        d1 = self.dec1(d1)
-
-        encoded_image = self.out_conv(d1)     # (B, 3, H, W)
+        encoded_image = self.conv3(x2)                 # (B, 3, H, W)
         return encoded_image
-        
+
 # ==== Mô hình Decoder ====
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
-        
-        # === ENCODER === (giống với Encoder nhưng chỉ nhận ảnh đầu vào)
-        self.conv1 = self.conv_block(3, 64)  # 3 channels: RGB image
-        self.pool1 = nn.MaxPool2d(2)         # giảm kích thước ảnh xuống H/2
-
-        self.conv2 = self.conv_block(64, 128)
-        self.pool2 = nn.MaxPool2d(2)         # giảm kích thước ảnh xuống H/4
-
-        self.conv3 = self.conv_block(128, 256)  # Tầng sâu nhất
-
-        # === DECODER ===
-        self.up2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)  # H/2
-        self.dec2 = self.conv_block(256, 128)  # Gộp skip connection
-
-        self.up1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)   # H
-        self.dec1 = self.conv_block(128, 64)   # Gộp skip connection
-
-        self.out_conv = nn.Conv2d(64, 1, kernel_size=1)  # đầu ra thông điệp (1 channel)
-        self.sigmoid = nn.Sigmoid()  # đảm bảo đầu ra trong khoảng [0,1]
-
-    def conv_block(self, in_ch, out_ch):
-        """ Tầng Conv chuẩn với ReLU activation (giống Encoder) """
-        return nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
+        self.decoder = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
-            nn.ReLU()
+            nn.Conv2d(64, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 1, kernel_size=1),
+            nn.Sigmoid()  # đảm bảo đầu ra trong khoảng [0,1]
         )
 
     def forward(self, encoded_image):
-        """ Chạy dữ liệu qua Encoder và Decoder với Skip Connections """
-        # === ENCODER ===
-        e1 = self.conv1(encoded_image)      # (B, 64, H, W)
-        p1 = self.pool1(e1)                 # (B, 64, H/2, W/2)
+        return self.decoder(encoded_image)
 
-        e2 = self.conv2(p1)                 # (B, 128, H/2, W/2)
-        p2 = self.pool2(e2)                 # (B, 128, H/4, W/4)
+# === Mô hinh Cover Reconstructor ===
+class CoverReconstructor(nn.Module):
+    def __init__(self):
+        super(CoverReconstructor, self).__init__()
+        self.reconstructor = nn.Sequential(
+            nn.Conv2d(4, 64, kernel_size=3, padding=1),  # Stego image (3) + message (1)
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 3, kernel_size=1),             # tái tạo lại ảnh RGB
+            nn.Sigmoid()  # để đảm bảo output ảnh trong khoảng [0,1]
+        )
 
-        e3 = self.conv3(p2)                 # (B, 256, H/4, W/4)
-
-        # === DECODER ===
-        d2 = self.up2(e3)                   # (B, 128, H/2, W/2)
-        d2 = torch.cat([d2, e2], dim=1)     # Skip connection
-        d2 = self.dec2(d2)
-
-        d1 = self.up1(d2)                   # (B, 64, H, W)
-        d1 = torch.cat([d1, e1], dim=1)     # Skip connection
-        d1 = self.dec1(d1)
-
-        decoded_message = self.sigmoid(self.out_conv(d1))  # (B, 1, H, W)
-        return decoded_message
+    def forward(self, stego_image, message):
+        # Ghép message lại với ảnh stego
+        combined = torch.cat([stego_image, message], dim=1)  # (B, 4, H, W)
+        return self.reconstructor(combined)
