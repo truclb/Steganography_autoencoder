@@ -11,7 +11,7 @@ from PIL import Image
 import torchvision.transforms.functional as TF
 # Load the trained SteganoModel
 import base64
-from Deploy.Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils, aes_encrypt,aes_decrypt, calculate_actual_bpp,CoverReconstructor
+from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils, aes_encrypt,aes_decrypt, calculate_actual_bpp,CoverReconstructor
 import torch.nn.functional as F
 #from Model.Model_class_v3 import Encoder, Decoder, SteganographyUtils,calculate_actual_bpp 
 import torchvision.utils as vutils
@@ -61,7 +61,7 @@ def embed_Data(cover_input, secret_data):
     # Mã hóa chuỗi thành tensor
     H, W = test_img.shape[-2], test_img.shape[-1]
 
-    secret_data = aes_encrypt(secret_data)
+    secret_data,password = aes_encrypt(secret_data)
     test_msg_tensor = utils.text_to_tensor(secret_data, H, W).unsqueeze(0).to(device)  # (1, 1, H, W)
 
     # Dùng encoder để mã hóa
@@ -74,10 +74,10 @@ def embed_Data(cover_input, secret_data):
     bpp = calculate_actual_bpp(test_msg_tensor,test_img)
     print(f"SSIM: {ssim} ")
     print(f"bpp: {bpp}")
-    return stego_pil,ssim,bpp #Hàm return trả về hệ thống để hiển thị lên màn hình
+    return stego_pil,ssim,bpp,password #Hàm return trả về hệ thống để hiển thị lên màn hình
 
 # Decoding function: Extracts secret data from the stego image using the loaded model.
-def extract_Data(stego_input):
+def extract_Data(stego_input,password):
     print("--------This is DECODE function-------")
     
     if isinstance(stego_input, str):
@@ -96,6 +96,6 @@ def extract_Data(stego_input):
     vutils.save_image(recovered_img[0],RECOVER_PATH)
     recovered_img = Image.open(RECOVER_PATH).convert("RGB")
     recovered_text = utils.tensor_to_text(recovered_secret[0])
-    recovered_text = aes_decrypt(recovered_text)
+    recovered_text = aes_decrypt(recovered_text,password)
     print(f"✅ Giải mã thành công chuỗi: ",recovered_text)
     return recovered_text,recovered_img

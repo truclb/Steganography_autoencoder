@@ -75,23 +75,35 @@ class SteganographyUtils:
         return self.binary_to_text(''.join([str(int(b)) for b in decoded_bits]))
 
     # Hàm mã hóa AES
-def aes_encrypt(plaintext, key="abc"):
-        # Đảm bảo key có độ dài 32 byte (AES-256)
-        key = key.ljust(32)[:32].encode('utf-8')
-        iv = get_random_bytes(16)  # Khởi tạo vector ngẫu nhiên
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        ciphertext = cipher.encrypt(pad(plaintext.encode('utf-8'), AES.block_size))
-        return base64.b64encode(iv + ciphertext).decode('utf-8')  # Trả về base64 để dễ lưu trữ
+def aes_encrypt(plaintext):
+    key = get_random_bytes(32)  # Tạo khóa AES-256 (32 byte)
+    iv = get_random_bytes(16)   # Khởi tạo vector khởi tạo (IV) 16 byte
 
-    # Hàm giải mã AES
-def aes_decrypt(encrypted_text, key="abc"):
-        key = key.ljust(32)[:32].encode('utf-8')
-        encrypted_data = base64.b64decode(encrypted_text)
-        iv = encrypted_data[:16]
-        ciphertext = encrypted_data[16:]
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
-        return plaintext.decode('utf-8')
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    ciphertext = cipher.encrypt(pad(plaintext.encode('utf-8'), AES.block_size))
+
+    # Kết hợp IV + ciphertext và encode base64 để dễ lưu trữ
+    encrypted_data = base64.b64encode(iv + ciphertext).decode('utf-8')
+
+    # Trả về dữ liệu mã hóa + khóa dưới dạng base64 (hoặc có thể là hex nếu muốn)
+    return encrypted_data, base64.b64encode(key).decode('utf-8')
+
+def aes_decrypt(encrypted_text, base64_key):
+    # Giải mã khóa từ base64 -> bytes
+    key = base64.b64decode(base64_key)
+
+    # Giải mã dữ liệu từ base64 -> bytes
+    encrypted_data = base64.b64decode(encrypted_text)
+
+    # Tách IV và ciphertext
+    iv = encrypted_data[:16]
+    ciphertext = encrypted_data[16:]
+
+    # Tạo cipher và giải mã
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    plaintext = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+    return plaintext.decode('utf-8')
 # ---------------------------------------------------------------------
 def calculate_actual_bpp(message_tensor: torch.Tensor, image_tensor: torch.Tensor) -> float:
     """

@@ -21,14 +21,14 @@ async def get_home(request: Request):
 
 # Endpoint trích xuất dữ liệu từ ảnh
 @app.post("/extract-data/", response_class=HTMLResponse)
-async def extract_data(request: Request, imageUpload: UploadFile = File(...)):
+async def extract_data(request: Request, imageUpload: UploadFile = File(...), password: str=Form(...)):
     try:
         # Đọc ảnh từ file upload
         img_bytes = await imageUpload.read()
         img = Image.open(BytesIO(img_bytes))
 
         # Gọi decode không cần output_path nữa
-        extracted_data, restored_image = model_start.extract_Data(img)
+        extracted_data, restored_image = model_start.extract_Data(img,password)
 
          # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffer_display = BytesIO()
@@ -54,7 +54,7 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
         secret_data = dataInput
         print("Secret data la: ",secret_data)
         # Nhúng dữ liệu vào ảnh (Ví dụ: thêm văn bản vào ảnh)
-        img_with_data,ssim_value,bpp_value = model_start.embed_Data(img,secret_data)
+        img_with_data,ssim_value,bpp_value,password = model_start.embed_Data(img,secret_data)
 
         # Chuyển ảnh với dữ liệu đã nhúng thành base64 --> để hiển thị trên web
         buffered_with_data = BytesIO()
@@ -65,7 +65,8 @@ async def embed_data(request: Request, imageUploadEmbed: UploadFile = File(...),
             "request": request,
             "imageWithDataURL": f"data:image/png;base64,{img_with_data_str}",
             "ssim_value": f"{ssim_value}",
-            "bpp_value": f"{bpp_value}"
+            "bpp_value": f"{bpp_value}",
+            "hidden_string":f"{password}"
         })
     except Exception as e:
         print(e)

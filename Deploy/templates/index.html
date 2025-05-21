@@ -80,13 +80,17 @@
 </header>
 
 <div class="container">
-  <!-- Extract Form -->
+    <!-- Extract Form -->
   <div class="form-section">
     <h3 class="text-primary mb-4">🔍 Extract Data from Image</h3>
     <form action="/extract-data/" method="POST" enctype="multipart/form-data">
       <div class="mb-3">
         <label for="imageUpload" class="form-label">Choose an image:</label>
         <input type="file" class="form-control" id="imageUpload" name="imageUpload" accept="image/*" required>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">Enter password:</label>
+        <input type="password" class="form-control" id="password" name="password" placeholder="Password for extraction" required>
       </div>
       <button type="submit" class="btn btn-primary">Extract Data</button>
     </form>
